@@ -1,80 +1,74 @@
 ﻿import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { Menu } from 'lucide-react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Provider } from 'react-redux';
+import { store } from './store';
+import { ThemeProvider } from './context/ThemeContext';
 import Sidebar from './components/layout/Sidebar';
+import Navbar from './components/layout/Navbar';
+import Dashboard from './pages/Dashboard/index';
+import Analytics from './pages/Dashboard/Analytics';
+import Explore from './pages/Dashboard/Explore';
+import Customers from './pages/Dashboard/Customers';
+import Integration from './pages/Dashboard/Integration';
+import Messages from './pages/Dashboard/Messages';
+import Reviews from './pages/Dashboard/Reviews';
+import Settings from './pages/Dashboard/Settings';
+import HelpCenter from './pages/Dashboard/HelpCenter';
+import About from './pages/Dashboard/About';
 import ChatInterface from './components/gemini-chat/ChatInterface';
+import { MessageCircle } from 'lucide-react';
 
-// Pages
-import DashboardPage from './pages/DashboardPage';
-import SalesPage from './pages/SalesPage';
-import CustomersPage from './pages/CustomersPage';
-import ProductsPage from './pages/ProductsPage';
-import AnalyticsPage from './pages/AnalyticsPage';
+// NEW: Add these routes
 import FickAIPage from './pages/FickAIPage';
 import DatasetsPage from './pages/DatasetsPage';
-import SettingsPage from './pages/SettingsPage';
 
 function App() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   return (
-    <Router>
-      <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
-        {/* Sidebar */}
-        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+    <Provider store={store}>
+      <ThemeProvider>
+        <Router>
+          <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
+            <Sidebar />
+            <div className="flex-1 ml-56 flex flex-col">
+              <Navbar />
+              <main className="flex-1 overflow-auto">
+                <Routes>
+                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/dashboard/analytics" element={<Analytics />} />
+                  <Route path="/dashboard/explore" element={<Explore />} />
+                  <Route path="/dashboard/customers" element={<Customers />} />
+                  <Route path="/dashboard/integration" element={<Integration />} />
+                  <Route path="/dashboard/messages" element={<Messages />} />
+                  <Route path="/dashboard/reviews" element={<Reviews />} />
+                  <Route path="/dashboard/settings" element={<Settings />} />
+                  <Route path="/help" element={<HelpCenter />} />
+                  <Route path="/about" element={<About />} />
+                  
+                  {/* NEW AI FEATURES */}
+                  <Route path="/fick-ai" element={<FickAIPage />} />
+                  <Route path="/datasets" element={<DatasetsPage />} />
+                  
+                  <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                </Routes>
+              </main>
+            </div>
 
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col lg:ml-64">
-          {/* Mobile Header */}
-          <header className="lg:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 flex items-center justify-between">
             <button
-              onClick={() => setSidebarOpen(true)}
-              className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+              onClick={() => setIsChatOpen(!isChatOpen)}
+              className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-full shadow-lg hover:shadow-xl transition-all flex items-center justify-center z-40 hover:scale-110"
+              aria-label="Open AI Chat"
             >
-              <Menu size={24} />
+              <MessageCircle size={24} />
             </button>
-            <h1 className="text-lg font-bold text-gray-900 dark:text-white">SalesRadar</h1>
-            <div className="w-10" /> {/* Spacer */}
-          </header>
 
-          {/* Page Content */}
-          <main className="flex-1 overflow-y-auto">
-            <Routes>
-              <Route path="/" element={<DashboardPage />} />
-              <Route path="/sales" element={<SalesPage />} />
-              <Route path="/customers" element={<CustomersPage />} />
-              <Route path="/products" element={<ProductsPage />} />
-              <Route path="/analytics" element={<AnalyticsPage />} />
-              <Route path="/fick-ai" element={<FickAIPage />} />
-              <Route path="/datasets" element={<DatasetsPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
-            </Routes>
-          </main>
-        </div>
-
-        {/* Floating Chat Widget (on non-FickAI pages) */}
-        <Routes>
-          <Route path="/fick-ai" element={null} />
-          <Route
-            path="*"
-            element={
-              <>
-                <ChatInterface isOpen={chatOpen} onClose={() => setChatOpen(false)} />
-                {!chatOpen && (
-                  <button
-                    onClick={() => setChatOpen(true)}
-                    className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-full shadow-2xl hover:shadow-3xl transition-all z-40 flex items-center justify-center"
-                  >
-                    <span className="text-2xl">🤖</span>
-                  </button>
-                )}
-              </>
-            }
-          />
-        </Routes>
-      </div>
-    </Router>
+            <ChatInterface isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
+          </div>
+        </Router>
+      </ThemeProvider>
+    </Provider>
   );
 }
 

@@ -1,123 +1,165 @@
 ﻿import React from 'react';
-import { NavLink } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  ShoppingCart, 
-  Users, 
-  Package, 
-  BarChart3, 
+import {
+  LayoutGrid,
+  TrendingUp,
+  Search,
+  User,
+  Puzzle,
+  MessageSquare,
+  Star,
   Settings,
-  Sparkles,
-  Database,
+  HelpCircle,
   LogOut,
-  Menu,
-  X
+  Sparkles,
+  Database
 } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 
-const Sidebar = ({ isOpen, onClose }) => {
-  const menuItems = [
-    { path: '/', icon: LayoutDashboard, label: 'Dashboard', color: 'text-blue-600' },
-    { path: '/sales', icon: ShoppingCart, label: 'Sales', color: 'text-green-600' },
-    { path: '/customers', icon: Users, label: 'Customers', color: 'text-purple-600' },
-    { path: '/products', icon: Package, label: 'Products', color: 'text-orange-600' },
-    { path: '/analytics', icon: BarChart3, label: 'Analytics', color: 'text-indigo-600' },
-    { path: '/fick-ai', icon: Sparkles, label: 'Fick AI', color: 'text-pink-600', badge: 'New' },
-    { path: '/datasets', icon: Database, label: 'Datasets', color: 'text-teal-600', badge: 'New' },
-    { path: '/settings', icon: Settings, label: 'Settings', color: 'text-gray-600' },
+const Sidebar = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const mainMenuItems = [
+    { icon: LayoutGrid, label: 'Business Overview', path: '/dashboard' },
+    { icon: TrendingUp, label: 'Analytics', path: '/dashboard/analytics' },
+    { icon: Search, label: 'Business Explore', path: '/dashboard/explore' },
+    { icon: User, label: 'Customers', path: '/dashboard/customers' },
+    { icon: Puzzle, label: 'Integration', path: '/dashboard/integration' },
   ];
 
+  const settingsItems = [
+    { icon: MessageSquare, label: 'Messages', path: '/dashboard/messages' },
+    { icon: Star, label: 'Customer Reviews', path: '/dashboard/reviews' },
+    { icon: Sparkles, label: 'Fick AI', path: '/fick-ai', badge: 'New' }, // NEW
+    { icon: Database, label: 'Datasets', path: '/datasets', badge: 'New' }, // NEW
+    { icon: Settings, label: 'Settings', path: '/dashboard/settings' },
+  ];
+
+  const isActive = (path) => location.pathname === path;
+
+  const handleLogout = () => {
+    if (window.confirm('Are you sure you want to logout?')) {
+      localStorage.removeItem('authToken');
+      navigate('/login');
+    }
+  };
+
   return (
-    <>
-      {/* Mobile Overlay */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={onClose}
-        />
-      )}
-
-      {/* Sidebar */}
-      <aside
-        className={`fixed left-0 top-0 h-screen w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 z-50 transition-transform duration-300 lg:translate-x-0 ${
-          isOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
-      >
-        {/* Logo & Close Button */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
-              <BarChart3 className="text-white" size={24} />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white">SalesRadar</h1>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Analytics Pro</p>
-            </div>
+    <div className="w-56 h-screen bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col fixed left-0 top-0 z-50 transition-colors duration-200">
+      {/* Logo - Links to About Page */}
+      <div className="h-16 px-4 flex items-center border-b border-gray-200 dark:border-gray-700">
+        <Link
+          to="/about"
+          className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
+        >
+          <div className="w-7 h-7 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center shadow-sm">
+            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+            </svg>
           </div>
-          <button
-            onClick={onClose}
-            className="lg:hidden p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-          >
-            <X size={20} />
-          </button>
+          <span className="text-lg font-bold text-gray-900 dark:text-white">FiberOps</span>
+        </Link>
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1 overflow-y-auto py-4">
+        {/* Main Menu */}
+        <div className="px-3 mb-6">
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 px-2">Main Menu</p>
+          <div className="space-y-0.5">
+            {mainMenuItems.map((item, index) => (
+              <Link
+                key={index}
+                to={item.path}
+                className={`
+                  flex items-center space-x-2.5 px-3 py-2.5 rounded-lg
+                  transition-all duration-200 group relative overflow-hidden
+                  ${isActive(item.path)
+                    ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md'
+                    : 'text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400'
+                  }
+                `}
+              >
+                {!isActive(item.path) && (
+                  <div className="absolute inset-0 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-lg" />
+                )}
+
+                <item.icon
+                  size={18}
+                  strokeWidth={2}
+                  className="relative z-10"
+                />
+                <span className="text-sm font-medium relative z-10">{item.label}</span>
+              </Link>
+            ))}
+          </div>
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto p-4 space-y-1">
-          {menuItems.map((item) => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              onClick={() => window.innerWidth < 1024 && onClose()}
-              className={({ isActive }) =>
-                `flex items-center justify-between px-4 py-3 rounded-xl transition-all group ${
-                  isActive
-                    ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  <div className="flex items-center space-x-3">
-                    <item.icon
-                      size={20}
-                      className={isActive ? 'text-white' : item.color}
-                    />
-                    <span className="font-medium">{item.label}</span>
-                  </div>
-                  {item.badge && (
-                    <span className={`text-xs px-2 py-1 rounded-full font-semibold ${
-                      isActive
-                        ? 'bg-white/20 text-white'
-                        : 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
-                    }`}>
-                      {item.badge}
-                    </span>
-                  )}
-                </>
-              )}
-            </NavLink>
-          ))}
-        </nav>
+        {/* Settings */}
+        <div className="px-3">
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 px-2">Settings</p>
+          <div className="space-y-0.5">
+            {settingsItems.map((item, index) => (
+              <Link
+                key={index}
+                to={item.path}
+                className={`
+                  flex items-center justify-between px-3 py-2.5 rounded-lg 
+                  transition-all duration-200 group relative overflow-hidden
+                  ${isActive(item.path)
+                    ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md'
+                    : 'text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400'
+                  }
+                `}
+              >
+                {!isActive(item.path) && (
+                  <div className="absolute inset-0 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-lg" />
+                )}
 
-        {/* User Section */}
-        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-          <div className="flex items-center space-x-3 mb-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
-            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
-              JD
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">John Doe</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">john@example.com</p>
-            </div>
+                <div className="flex items-center space-x-2.5">
+                  <item.icon
+                    size={18}
+                    strokeWidth={2}
+                    className="relative z-10"
+                  />
+                  <span className="text-sm font-medium relative z-10">{item.label}</span>
+                </div>
+
+                {/* NEW Badge */}
+                {item.badge && (
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-semibold relative z-10 ${
+                    isActive(item.path)
+                      ? 'bg-white/20 text-white'
+                      : 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+                  }`}>
+                    {item.badge}
+                  </span>
+                )}
+              </Link>
+            ))}
           </div>
-          <button className="w-full flex items-center justify-center space-x-2 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
-            <LogOut size={16} />
-            <span>Logout</span>
-          </button>
         </div>
-      </aside>
-    </>
+      </nav>
+
+      {/* Bottom Actions */}
+      <div className="p-3 border-t border-gray-200 dark:border-gray-700 space-y-0.5">
+        <Link
+          to="/help"
+          className="flex items-center space-x-2.5 px-3 py-2.5 text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-gradient-to-r hover:from-purple-50 hover:to-blue-50 dark:hover:from-purple-900/20 dark:hover:to-blue-900/20 rounded-lg w-full transition-all duration-200 group"
+        >
+          <HelpCircle size={18} strokeWidth={2} className="relative z-10" />
+          <span className="text-sm font-medium relative z-10">Help Center</span>
+        </Link>
+
+        <button
+          onClick={handleLogout}
+          className="flex items-center space-x-2.5 px-3 py-2.5 text-gray-700 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg w-full transition-all duration-200 group"
+        >
+          <LogOut size={18} strokeWidth={2} className="relative z-10" />
+          <span className="text-sm font-medium relative z-10">Logout</span>
+        </button>
+      </div>
+    </div>
   );
 };
 
