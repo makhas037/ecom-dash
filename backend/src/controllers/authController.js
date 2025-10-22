@@ -1,56 +1,134 @@
-// backend/src/controllers/authController.js
-import User from '../models/UserModel.js';
+﻿import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import pkg from 'pg';
+const { Pool } = pkg;
 
-// Helper to generate a token
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
+const pool = new Pool({
+  host: process.env.DB_HOST || 'postgres',
+  port: process.env.DB_PORT || 5432,
+  database: process.env.DB_NAME || 'ecom_dash',
+  user: process.env.DB_USER || 'postgres',
+  password: process.env.DB_PASSWORD || 'postgres',
+});
+
+const generateToken = (userId) => {
+  return jwt.sign({ userId }, process.env.JWT_SECRET || 'your-secret-key', { 
+    expiresIn: '7d' 
+  });
 };
 
-// @desc    Register a new user with PostgreSQL
-// @route   POST /api/auth/register
-export const registerUser = async (req, res) => {
-  const { name, email, password } = req.body;
-
+export const register = async (req, res) => {
   try {
-    const userExists = await User.findOne({ where: { email } });
+    const { name, email, password } = req.body;
 
-    if (userExists) {
-      return res.status(400).json({ message: 'User already exists' });
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: 'All fields required' });
     }
 
-    const user = await User.create({ name, email, password });
+    // Check if user exists
+    const existingUser = await pool.query(
+      'SELECT * FROM users WHERE email = $1',
+      [email]
+    );
 
-    res.status(201).json({
-      _id: user.id,
-      name: user.name,
-      email: user.email,
-      token: generateToken(user.id),
+    if (existingUser.rows.length > 0) {
+      return res.status(400).json({ error: 'User already exists' });
+    }
+
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Insert user - USE password_hash column (matches existing table)
+    const result = await pool.query(
+      `INSERT INTO users (name, email, password_hash, role) 
+       VALUES ($1, $2, $3, 'user') 
+       RETURNING id, name, email, role, created_at`,
+      [name, email, hashedPassword]
+    );
+
+    const user = result.rows[0];
+    const token = generateToken(user.id);
+
+    res.status(201).json({ 
+      success: true, 
+      token, 
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role
+      }
     });
   } catch (error) {
-    res.status(500).json({ message: 'Server error during registration', error: error.message });
+    console.error('Register error:', error);
+    res.status(500).json({ error: 'Registration failed', message: error.message });
   }
 };
 
-// @desc    Auth user & get token with PostgreSQL
-// @route   POST /api/auth/login
-export const loginUser = async (req, res) => {
-  const { email, password } = req.body;
-
+export const login = async (req, res) => {
   try {
-    const user = await User.findOne({ where: { email } });
+    const { email, password } = req.body;
 
-    if (user && (await user.matchPassword(password))) {
-      res.json({
-        _id: user.id,
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password required' });
+    }
+
+    // Get user with password_hash
+    const result = await pool.query(
+      'SELECT * FROM users WHERE email = $1',
+      [email]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const user = result.rows[0];
+
+    // Compare password with password_hash
+    const isMatch = await bcrypt.compare(password, user.password_hash);
+    if (!isMatch) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Update last login
+    await pool.query(
+      'UPDATE users SET updated_at = NOW() WHERE id = $1',
+      [user.id]
+    );
+
+    const token = generateToken(user.id);
+
+    res.json({
+      success: true,
+      token,
+      user: {
+        id: user.id,
         name: user.name,
         email: user.email,
-        token: generateToken(user.id),
-      });
-    } else {
-      res.status(401).json({ message: 'Invalid email or password' });
-    }
+        role: user.role
+      }
+    });
   } catch (error) {
-    res.status(500).json({ message: 'Server error during login', error: error.message });
+    console.error('Login error:', error);
+    res.status(500).json({ error: 'Login failed', message: error.message });
+  }
+};
+
+export const getCurrentUser = async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, name, email, role, created_at FROM users WHERE id = $1',
+      [req.userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({ user: result.rows[0] });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get user' });
   }
 };

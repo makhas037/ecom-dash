@@ -1,4 +1,5 @@
-﻿import express from 'express';
+﻿import authRoutes from './auth.js';
+import express from 'express';
 import pkg from 'pg';
 const { Pool } = pkg;
 import { FileUploadService, upload } from '../services/fileUploadService.js';
@@ -305,5 +306,7 @@ router.get('/customers', async (req, res) => {
 });
 
 console.log('📋 All routes loaded successfully');
+
+router.use('/auth', authRoutes);
 
 export default router;
