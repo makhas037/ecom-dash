@@ -2,9 +2,13 @@
 import pkg from 'pg';
 const { Pool } = pkg;
 
+import { AIOrchestrator } from '../services/aiOrchestrator.js';
+import { ChatHistoryService } from '../services/chatHistoryService.js';
+import { UserPreferencesService } from '../services/userPreferencesService.js';
+import { DatasetService } from '../services/datasetService.js';
+
 const router = express.Router();
 
-// Database connection
 const pool = new Pool({
   host: process.env.DB_HOST || 'localhost',
   port: process.env.DB_PORT || 5432,
@@ -14,66 +18,194 @@ const pool = new Pool({
   max: 20,
 });
 
-pool.on('connect', () => {
-  console.log('✅ Database connected in routes');
-});
-
-// Health check
+// ==================== HEALTH CHECK ====================
 router.get('/health', (req, res) => {
-  console.log('Health check requested');
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Gemini AI Chat - CRITICAL: This must be defined
+// ==================== AI CHAT ====================
 router.post('/gemini/chat', async (req, res) => {
-  console.log('🤖 Gemini chat endpoint hit');
-  console.log('Request body:', req.body);
+  console.log('🤖 AI Chat request received');
   
   try {
-    const { message, context } = req.body;
+    const { message, userId } = req.body;
     
     if (!message) {
       return res.status(400).json({ error: 'Message is required' });
     }
 
-    const { GoogleGenerativeAI } = await import('@google/generative-ai');
-    
-    const apiKey = process.env.GEMINI_API_KEY || 'AIzaSyCs0rVYHFMKL3lifcistmSUY90jKv059WY';
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    // Use a default user if not provided (for testing)
+    const effectiveUserId = userId || 'default-user-id';
 
-    let prompt = `You are Fick AI, a business analytics assistant.\n\n`;
-    
-    if (context?.salesData) {
-      prompt += `Business metrics:\n`;
-      prompt += `- Total Sales: ${context.salesData.total_sales || 'N/A'}\n`;
-      prompt += `- Revenue: $${context.salesData.total_revenue || 'N/A'}\n`;
-      prompt += `- Avg Order: $${context.salesData.avg_order_value || 'N/A'}\n\n`;
-    }
-    
-    prompt += `Question: ${message}\n\nProvide a helpful response in under 150 words.`;
+    // Process message through AI Orchestrator
+    const result = await AIOrchestrator.processMessage(message, effectiveUserId);
 
-    console.log('Sending to Gemini...');
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
+    console.log(`✅ Response generated (type: ${result.messageType})`);
+    res.json(result);
 
-    console.log('✅ Gemini response received');
-    res.json({
-      response: text,
-      timestamp: new Date().toISOString(),
-      model: 'gemini-2.5-flash'
-    });
   } catch (error) {
-    console.error('❌ Gemini error:', error);
+    console.error('❌ AI Chat error:', error);
     res.status(500).json({ 
       error: 'AI service error',
-      details: error.message 
+      details: error.message
     });
   }
 });
 
-// Sales endpoint
+// ==================== CHAT HISTORY ====================
+router.get('/chat/history/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const limit = parseInt(req.query.limit) || 50;
+    
+    const history = await ChatHistoryService.getUserHistory(userId, limit);
+    res.json({ history, count: history.length });
+  } catch (error) {
+    console.error('History error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/chat/history/search', async (req, res) => {
+  try {
+    const { userId, searchTerm } = req.body;
+    const results = await ChatHistoryService.searchHistory(userId, searchTerm);
+    res.json({ results, count: results.length });
+  } catch (error) {
+    console.error('Search error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.delete('/chat/history/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    await ChatHistoryService.clearHistory(userId);
+    res.json({ message: 'Chat history cleared successfully' });
+  } catch (error) {
+    console.error('Clear history error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== USER PREFERENCES ====================
+router.get('/preferences/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const preferences = await UserPreferencesService.getPreferences(userId);
+    res.json(preferences);
+  } catch (error) {
+    console.error('Get preferences error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.put('/preferences/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const updates = req.body;
+    const preferences = await UserPreferencesService.updatePreferences(userId, updates);
+    res.json(preferences);
+  } catch (error) {
+    console.error('Update preferences error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/preferences/:userId/reset', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const preferences = await UserPreferencesService.resetPreferences(userId);
+    res.json(preferences);
+  } catch (error) {
+    console.error('Reset preferences error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== USER DATASETS ====================
+router.get('/datasets/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const datasets = await DatasetService.getUserDatasets(userId);
+    res.json({ datasets, count: datasets.length });
+  } catch (error) {
+    console.error('Get datasets error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/datasets/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { dataset_name, description, query_config } = req.body;
+    
+    const dataset = await DatasetService.saveDataset(
+      userId,
+      dataset_name,
+      description,
+      query_config
+    );
+    
+    res.json(dataset);
+  } catch (error) {
+    console.error('Save dataset error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/datasets/:userId/:datasetId', async (req, res) => {
+  try {
+    const { userId, datasetId } = req.params;
+    const dataset = await DatasetService.getDataset(datasetId, userId);
+    
+    if (!dataset) {
+      return res.status(404).json({ error: 'Dataset not found' });
+    }
+    
+    res.json(dataset);
+  } catch (error) {
+    console.error('Get dataset error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.put('/datasets/:userId/:datasetId', async (req, res) => {
+  try {
+    const { userId, datasetId } = req.params;
+    const updates = req.body;
+    
+    const dataset = await DatasetService.updateDataset(datasetId, userId, updates);
+    res.json(dataset);
+  } catch (error) {
+    console.error('Update dataset error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.delete('/datasets/:userId/:datasetId', async (req, res) => {
+  try {
+    const { userId, datasetId } = req.params;
+    await DatasetService.deleteDataset(datasetId, userId);
+    res.json({ message: 'Dataset deleted successfully' });
+  } catch (error) {
+    console.error('Delete dataset error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/datasets/:userId/:datasetId/favorite', async (req, res) => {
+  try {
+    const { userId, datasetId } = req.params;
+    const dataset = await DatasetService.toggleFavorite(datasetId, userId);
+    res.json(dataset);
+  } catch (error) {
+    console.error('Toggle favorite error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== EXISTING ENDPOINTS ====================
 router.get('/sales', async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -100,7 +232,6 @@ router.get('/sales', async (req, res) => {
   }
 });
 
-// Analytics dashboard
 router.get('/analytics/dashboard', async (req, res) => {
   try {
     const kpisQuery = `
@@ -130,7 +261,6 @@ router.get('/analytics/dashboard', async (req, res) => {
   }
 });
 
-// Users
 router.get('/users', async (req, res) => {
   try {
     const result = await pool.query('SELECT id, email, full_name, role FROM users');
@@ -140,7 +270,6 @@ router.get('/users', async (req, res) => {
   }
 });
 
-// Products
 router.get('/products', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM products');
@@ -150,7 +279,6 @@ router.get('/products', async (req, res) => {
   }
 });
 
-// Customers
 router.get('/customers', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM customers ORDER BY created_at DESC');
@@ -160,13 +288,6 @@ router.get('/customers', async (req, res) => {
   }
 });
 
-// Log all registered routes
-console.log('📋 Registered routes:');
-router.stack.forEach((r) => {
-  if (r.route) {
-    const methods = Object.keys(r.route.methods).join(', ').toUpperCase();
-    console.log(`  ${methods} /api${r.route.path}`);
-  }
-});
+console.log('📋 All routes loaded successfully with AI services');
 
 export default router;

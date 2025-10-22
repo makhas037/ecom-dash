@@ -34,6 +34,7 @@ const ChatInterface = ({ isOpen, onClose }) => {
     const userMessage = input.trim();
     setInput('');
 
+    // Add user message
     setMessages(prev => [...prev, { 
       role: 'user', 
       content: userMessage,
@@ -42,11 +43,13 @@ const ChatInterface = ({ isOpen, onClose }) => {
     setIsLoading(true);
 
     try {
+      // FIXED: Changed from /chat/gemini to /gemini/chat
       const response = await axiosInstance.post('/gemini/chat', {
         message: userMessage,
         conversationHistory: messages
       });
 
+      // Add AI response
       setMessages(prev => [...prev, {
         role: 'assistant',
         content: response.data.response,
@@ -57,6 +60,7 @@ const ChatInterface = ({ isOpen, onClose }) => {
       
       let errorMessage = 'Sorry, I encountered an error.';
       
+      // Better error handling
       if (error.code === 'ERR_NETWORK') {
         errorMessage = 'Cannot connect to backend server. Please ensure it is running on port 5000.';
       } else if (error.response?.status === 404) {
@@ -190,7 +194,7 @@ const ChatInterface = ({ isOpen, onClose }) => {
       {/* Quick Suggestions */}
       <div className="px-4 py-2 border-t border-gray-200 dark:border-gray-700">
         <div className="flex flex-wrap gap-2">
-          {['Sales trends', 'Top customers', 'Product analysis', 'Help with errors'].map((suggestion) => (
+          {['Sales trends', 'Top customers', 'Product analysis', 'Churn risk'].map((suggestion) => (
             <button
               key={suggestion}
               onClick={() => setInput(suggestion)}
