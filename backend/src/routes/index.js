@@ -1,11 +1,7 @@
 ﻿import express from 'express';
 import pkg from 'pg';
 const { Pool } = pkg;
-
-import { AIOrchestrator } from '../services/aiOrchestrator.js';
-import { ChatHistoryService } from '../services/chatHistoryService.js';
-import { UserPreferencesService } from '../services/userPreferencesService.js';
-import { DatasetService } from '../services/datasetService.js';
+import { FileUploadService, upload } from '../services/fileUploadService.js';
 
 const router = express.Router();
 
@@ -25,7 +21,7 @@ router.get('/health', (req, res) => {
 
 // ==================== AI CHAT ====================
 router.post('/gemini/chat', async (req, res) => {
-  console.log('🤖 AI Chat request received');
+  console.log('🤖 Chat request');
   
   try {
     const { message, userId } = req.body;
@@ -34,66 +30,139 @@ router.post('/gemini/chat', async (req, res) => {
       return res.status(400).json({ error: 'Message is required' });
     }
 
-    // Use a default user if not provided (for testing)
-    const effectiveUserId = userId || 'default-user-id';
+    const { GoogleGenerativeAI } = await import('@google/generative-ai');
+    const apiKey = process.env.GEMINI_API_KEY || 'AIzaSyCs0rVYHFMKL3lifcistmSUY90jKv059WY';
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
-    // Process message through AI Orchestrator
-    const result = await AIOrchestrator.processMessage(message, effectiveUserId);
+    let prompt = 'You are Fick AI, a helpful business analytics assistant.\n\n';
+    prompt += `User: ${message}\n\nProvide a helpful response in under 150 words.`;
 
-    console.log(`✅ Response generated (type: ${result.messageType})`);
-    res.json(result);
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
 
-  } catch (error) {
-    console.error('❌ AI Chat error:', error);
-    res.status(500).json({ 
-      error: 'AI service error',
-      details: error.message
+    res.json({
+      response: text,
+      timestamp: new Date().toISOString()
     });
+
+  } catch (error) {
+    console.error('Chat error:', error);
+    res.status(500).json({ error: 'AI service error', details: error.message });
   }
 });
 
-// ==================== CHAT HISTORY ====================
-router.get('/chat/history/:userId', async (req, res) => {
+// ==================== FILE UPLOAD & DATASETS ====================
+router.post('/datasets/:userId/upload', upload.single('file'), async (req, res) => {
+  console.log('📤 File upload');
+  
   try {
     const { userId } = req.params;
-    const limit = parseInt(req.query.limit) || 50;
     
-    const history = await ChatHistoryService.getUserHistory(userId, limit);
-    res.json({ history, count: history.length });
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const parsedData = await FileUploadService.parseFile(req.file.path, req.file.originalname);
+    const dataset = await FileUploadService.saveDataset(userId, req.file, parsedData);
+    
+    res.json({
+      message: 'Dataset uploaded successfully',
+      dataset: {
+        ...dataset,
+        preview: parsedData.data.slice(0, 5)
+      }
+    });
+    
   } catch (error) {
-    console.error('History error:', error);
+    console.error('Upload error:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-router.post('/chat/history/search', async (req, res) => {
-  try {
-    const { userId, searchTerm } = req.body;
-    const results = await ChatHistoryService.searchHistory(userId, searchTerm);
-    res.json({ results, count: results.length });
-  } catch (error) {
-    console.error('Search error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-router.delete('/chat/history/:userId', async (req, res) => {
+router.get('/datasets/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    await ChatHistoryService.clearHistory(userId);
-    res.json({ message: 'Chat history cleared successfully' });
+    const query = 'SELECT * FROM user_datasets WHERE user_id = $1 ORDER BY created_at DESC';
+    const result = await pool.query(query, [userId]);
+    res.json({ datasets: result.rows, count: result.rows.length });
   } catch (error) {
-    console.error('Clear history error:', error);
+    console.error('Get datasets error:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// ==================== USER PREFERENCES ====================
+router.get('/datasets/:userId/:datasetId/data', async (req, res) => {
+  try {
+    const { userId, datasetId } = req.params;
+    const fullData = await FileUploadService.getDatasetData(datasetId, userId);
+    
+    res.json({
+      dataset: {
+        id: fullData.id,
+        name: fullData.dataset_name,
+        rowCount: fullData.row_count,
+        columnCount: fullData.column_count,
+        columns: fullData.query_config.columns
+      },
+      data: fullData.data.slice(0, 100),
+      total: fullData.data.length,
+      preview: fullData.preview
+    });
+  } catch (error) {
+    console.error('Get dataset data error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/datasets/:userId/:datasetId/apply', async (req, res) => {
+  try {
+    const { userId, datasetId } = req.params;
+    const dataset = await FileUploadService.applyDataset(datasetId, userId);
+    res.json({ message: 'Dataset applied successfully', dataset });
+  } catch (error) {
+    console.error('Apply dataset error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/datasets/:userId/applied', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const query = 'SELECT * FROM user_datasets WHERE user_id = $1 AND is_applied = true';
+    const result = await pool.query(query, [userId]);
+    res.json({ dataset: result.rows[0] || null });
+  } catch (error) {
+    console.error('Get applied dataset error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.delete('/datasets/:userId/:datasetId', async (req, res) => {
+  try {
+    const { userId, datasetId } = req.params;
+    await FileUploadService.deleteDataset(datasetId, userId);
+    res.json({ message: 'Dataset deleted successfully' });
+  } catch (error) {
+    console.error('Delete dataset error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== PREFERENCES ====================
 router.get('/preferences/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    const preferences = await UserPreferencesService.getPreferences(userId);
-    res.json(preferences);
+    let query = 'SELECT * FROM user_preferences WHERE user_id = $1';
+    let result = await pool.query(query, [userId]);
+    
+    if (result.rows.length === 0) {
+      query = `INSERT INTO user_preferences (user_id) VALUES ($1) RETURNING *`;
+      result = await pool.query(query, [userId]);
+    }
+    
+    res.json(result.rows[0]);
   } catch (error) {
     console.error('Get preferences error:', error);
     res.status(500).json({ error: error.message });
@@ -103,104 +172,55 @@ router.get('/preferences/:userId', async (req, res) => {
 router.put('/preferences/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    const updates = req.body;
-    const preferences = await UserPreferencesService.updatePreferences(userId, updates);
-    res.json(preferences);
+    const { theme, default_chart_type, ai_response_style } = req.body;
+
+    const query = `
+      UPDATE user_preferences
+      SET theme = COALESCE($2, theme),
+          default_chart_type = COALESCE($3, default_chart_type),
+          ai_response_style = COALESCE($4, ai_response_style),
+          updated_at = CURRENT_TIMESTAMP
+      WHERE user_id = $1
+      RETURNING *
+    `;
+
+    const result = await pool.query(query, [userId, theme, default_chart_type, ai_response_style]);
+    res.json(result.rows[0]);
   } catch (error) {
     console.error('Update preferences error:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-router.post('/preferences/:userId/reset', async (req, res) => {
+// ==================== CHAT HISTORY ====================
+router.get('/chat/history/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    const preferences = await UserPreferencesService.resetPreferences(userId);
-    res.json(preferences);
+    const limit = parseInt(req.query.limit) || 50;
+    
+    const query = `
+      SELECT id, message, response, message_type, metadata, created_at
+      FROM chat_history
+      WHERE user_id = $1
+      ORDER BY created_at DESC
+      LIMIT $2
+    `;
+    
+    const result = await pool.query(query, [userId, limit]);
+    res.json({ history: result.rows, count: result.rows.length });
   } catch (error) {
-    console.error('Reset preferences error:', error);
+    console.error('History error:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// ==================== USER DATASETS ====================
-router.get('/datasets/:userId', async (req, res) => {
+router.delete('/chat/history/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    const datasets = await DatasetService.getUserDatasets(userId);
-    res.json({ datasets, count: datasets.length });
+    await pool.query('DELETE FROM chat_history WHERE user_id = $1', [userId]);
+    res.json({ message: 'Chat history cleared' });
   } catch (error) {
-    console.error('Get datasets error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-router.post('/datasets/:userId', async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const { dataset_name, description, query_config } = req.body;
-    
-    const dataset = await DatasetService.saveDataset(
-      userId,
-      dataset_name,
-      description,
-      query_config
-    );
-    
-    res.json(dataset);
-  } catch (error) {
-    console.error('Save dataset error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-router.get('/datasets/:userId/:datasetId', async (req, res) => {
-  try {
-    const { userId, datasetId } = req.params;
-    const dataset = await DatasetService.getDataset(datasetId, userId);
-    
-    if (!dataset) {
-      return res.status(404).json({ error: 'Dataset not found' });
-    }
-    
-    res.json(dataset);
-  } catch (error) {
-    console.error('Get dataset error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-router.put('/datasets/:userId/:datasetId', async (req, res) => {
-  try {
-    const { userId, datasetId } = req.params;
-    const updates = req.body;
-    
-    const dataset = await DatasetService.updateDataset(datasetId, userId, updates);
-    res.json(dataset);
-  } catch (error) {
-    console.error('Update dataset error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-router.delete('/datasets/:userId/:datasetId', async (req, res) => {
-  try {
-    const { userId, datasetId } = req.params;
-    await DatasetService.deleteDataset(datasetId, userId);
-    res.json({ message: 'Dataset deleted successfully' });
-  } catch (error) {
-    console.error('Delete dataset error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-router.post('/datasets/:userId/:datasetId/favorite', async (req, res) => {
-  try {
-    const { userId, datasetId } = req.params;
-    const dataset = await DatasetService.toggleFavorite(datasetId, userId);
-    res.json(dataset);
-  } catch (error) {
-    console.error('Toggle favorite error:', error);
+    console.error('Clear history error:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -227,7 +247,6 @@ router.get('/sales', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Sales error:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -251,12 +270,9 @@ router.get('/analytics/dashboard', async (req, res) => {
     
     res.json({
       kpis: kpis.rows[0],
-      recentSales: recentSales.rows,
-      topProducts: [],
-      customerStats: {}
+      recentSales: recentSales.rows
     });
   } catch (error) {
-    console.error('Analytics error:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -288,6 +304,6 @@ router.get('/customers', async (req, res) => {
   }
 });
 
-console.log('📋 All routes loaded successfully with AI services');
+console.log('📋 All routes loaded successfully');
 
 export default router;
