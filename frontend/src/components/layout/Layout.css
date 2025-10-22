@@ -1,0 +1,35 @@
+/* src/components/layout/Layout.css */
+.dashboard-layout {
+  display: grid;
+  grid-template-columns: 240px 1fr; /* Sidebar width and main content */
+  grid-template-rows: auto 1fr; /* Navbar height and main content */
+  grid-template-areas:
+    "sidebar navbar"
+    "sidebar main";
+  height: 100vh;
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  transition: background-color var(--transition-speed), color var(--transition-speed);
+}
+
+.layout-sidebar { grid-area: sidebar; }
+.layout-navbar { grid-area: navbar; }
+.layout-main { 
+  grid-area: main;
+  overflow-y: auto; /* Allows content to scroll */
+  padding: var(--spacing-lg);
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+  .dashboard-layout {
+    grid-template-columns: 1fr; /* Single column */
+    grid-template-areas:
+      "navbar"
+      "main";
+  }
+  .layout-sidebar {
+    /* On mobile, sidebar will be hidden and toggled with a button */
+    display: none; 
+  }
+}

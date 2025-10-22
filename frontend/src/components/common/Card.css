@@ -1,0 +1,9 @@
+/* src/components/common/Card.css */
+.card {
+  background-color: var(--color-surface);
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+  border: 1px solid var(--color-border);
+  padding: var(--spacing-md);
+  transition: background-color var(--transition-speed), border-color var(--transition-speed);
+}

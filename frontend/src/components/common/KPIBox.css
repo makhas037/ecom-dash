@@ -1,0 +1,32 @@
+/* src/components/common/KPIBox.css */
+.kpi-box {
+  padding: var(--spacing-sm) var(--spacing-md);
+}
+
+.kpi-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.kpi-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  line-height: 1.2;
+}
+
+.kpi-trend {
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: var(--spacing-xs);
+}
+
+.kpi-trend.positive {
+  color: var(--color-accent-1); /* Green */
+}
+
+.kpi-trend.negative {
+  color: var(--color-accent-3); /* Red */
+}

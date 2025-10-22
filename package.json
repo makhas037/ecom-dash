@@ -1,0 +1,28 @@
+{
+  "name": "FiberOps",
+  "version": "1.0.0",
+  "description": "Enterprise E-Commerce Sales Dashboard - Professional SaaS BI Platform",
+  "private": true,
+  "workspaces": ["frontend", "backend"],
+  "scripts": {
+    "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:analytics": "cd analytics && python -m uvicorn api.fastapi_app:app --reload --port 8000",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "build:frontend": "cd frontend && npm run build",
+    "build:backend": "cd backend && npm run build",
+    "test": "npm run test --workspaces",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "setup": "npm run install:all && npm run db:setup",
+    "db:setup": "cd database && node ../scripts/seed-database.js"
+  },
+  "keywords": ["dashboard", "analytics", "ecommerce", "sales", "business-intelligence", "react", "nodejs", "python", "machine-learning"],
+  "author": "SalesRadar Team",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

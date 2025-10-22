@@ -1,0 +1,49 @@
+/* src/styles/variables.css */
+:root {
+  /* ==================
+     COLOR PALETTE (Light Theme)
+     ================== */
+  --color-background: #f8f9fa; /* Clean off-white */
+  --color-surface: #ffffff;    /* Card and modal backgrounds */
+  --color-text-primary: #1a1a1a;
+  --color-text-secondary: #5c5c5c;
+  --color-border: #e9ecef;
+
+  /* Vibrant Accent Colors */
+  --color-primary: #007bff;   /* Bright Blue */
+  --color-accent-1: #28a745;  /* Success Green */
+  --color-accent-2: #ffc107;  /* Warning Yellow */
+  --color-accent-3: #dc3545;  /* Danger Red */
+  --color-accent-4: #6f42c1;  /* Rich Purple */
+
+  /* ==================
+     TYPOGRAPHY & SPACING (Precision)
+     ================== */
+  --font-family: 'Inter', sans-serif; /* Add Inter from Google Fonts */
+  
+  --spacing-unit: 8px;
+  --spacing-xs: var(--spacing-unit);      /* 8px */
+  --spacing-sm: calc(var(--spacing-unit) * 2); /* 16px */
+  --spacing-md: calc(var(--spacing-unit) * 3); /* 24px */
+  --spacing-lg: calc(var(--spacing-unit) * 4); /* 32px */
+  --spacing-xl: calc(var(--spacing-unit) * 6); /* 48px */
+
+  /* ==================
+     EFFECTS
+     ================== */
+  --border-radius: 8px;
+  --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --transition-speed: 300ms;
+}
+
+/* ==================
+   DARK THEME
+   ================== */
+[data-theme='dark'] {
+  --color-background: #121212;
+  --color-surface: #1e1e1e;
+  --color-text-primary: #f8f9fa;
+  --color-text-secondary: #a0a0a0;
+  --color-border: #343a40;
+  --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}

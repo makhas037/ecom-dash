@@ -1,0 +1,19 @@
+/* src/components/common/Notification.css */
+.notification {
+  position: fixed;
+  bottom: var(--spacing-lg);
+  right: var(--spacing-lg);
+  display: flex;
+  align-items: center;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--border-radius);
+  color: #fff;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+  z-index: 1000;
+  min-width: 300px;
+}
+.notification.success { background-color: var(--color-accent-1); }
+.notification.error { background-color: var(--color-accent-3); }
+.notification-icon { font-size: 20px; margin-right: var(--spacing-sm); }
+.notification-close { background: none; border: none; color: #fff; cursor: pointer; margin-left: auto; padding-left: var(--spacing-md); opacity: 0.8; }
+.notification-close:hover { opacity: 1; }

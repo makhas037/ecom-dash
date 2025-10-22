@@ -1,0 +1,14 @@
+/* src/pages/Dashboard/Dashboard.css */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--spacing-lg);
+}
+
+/* Make some widgets span multiple columns */
+.area-chart-widget {
+  grid-column: span 2; /* Make this widget wider */
+}
+@media (max-width: 900px) {
+  .area-chart-widget { grid-column: span 1; }
+}

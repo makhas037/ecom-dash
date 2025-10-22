@@ -1,0 +1,74 @@
+:root {
+  /* Colors */
+  --color-primary: #6D5AFE;
+  --color-primary-light: #8B7AFF;
+  --color-primary-dark: #5B4FD8;
+  --color-secondary-teal: #27D3C7;
+  --color-yellow: #FFD166;
+  --color-green: #22C55E;
+  --color-red: #FF6B6B;
+  
+  /* Backgrounds */
+  --bg-page: #F6F7FB;
+  --bg-card: #FFFFFF;
+  --bg-hover: #F9FAFB;
+  
+  /* Text */
+  --text-heading: #111827;
+  --text-body: #374151;
+  --text-muted: #6B7280;
+  --text-white: #FFFFFF;
+  
+  /* Borders */
+  --border-color: #E5E7EB;
+  --border-light: #F3F4F6;
+  
+  /* Shadows */
+  --shadow-soft: 0 1px 3px 0 rgba(16, 24, 40, 0.06);
+  --shadow-hover: 0 4px 6px -1px rgba(16, 24, 40, 0.08);
+  --shadow-elevated: 0 10px 15px -3px rgba(16, 24, 40, 0.1);
+  
+  /* Border Radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+  
+  /* Spacing (4px base) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  
+  /* Typography */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', 'Roboto', sans-serif;
+  --font-size-xs: 12px;
+  --font-size-sm: 14px;
+  --font-size-base: 15px;
+  --font-size-lg: 16px;
+  --font-size-xl: 20px;
+  --font-size-2xl: 22px;
+  --font-size-3xl: 28px;
+  --font-size-4xl: 36px;
+  
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  
+  /* Layout */
+  --sidebar-width: 260px;
+  --header-height: 64px;
+  --card-padding: 20px;
+  --card-gap: 24px;
+  
+  /* Transitions */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}

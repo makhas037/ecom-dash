@@ -1,0 +1,47 @@
+/* src/pages/HomePage/HomePage.css */
+.homepage-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-grow: 1; /* Make it fill the layout's main area */
+  padding: var(--spacing-xl);
+}
+
+.profile-card {
+  background-color: var(--color-surface);
+  padding: var(--spacing-xl);
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+  text-align: center;
+  width: 100%;
+  max-width: 500px;
+}
+
+.welcome-message {
+  font-size: 32px;
+  margin-bottom: var(--spacing-md);
+}
+
+.profile-detail {
+  font-size: 16px;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-sm);
+}
+
+.login-source {
+  text-transform: capitalize;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.logout-button {
+  margin-top: var(--spacing-lg);
+  padding: 12px 24px;
+  background-color: var(--color-accent-3);
+  color: #fff;
+  border: none;
+  border-radius: var(--border-radius);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}

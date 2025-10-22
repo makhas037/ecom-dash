@@ -1,0 +1,24 @@
+/* src/components/layout/Navbar.css */
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-md) var(--spacing-lg);
+  height: 80px;
+}
+.navbar-left h2 { font-size: 24px; color: var(--color-text-primary); }
+.navbar-right { display: flex; align-items: center; gap: var(--spacing-md); }
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--color-surface);
+  padding: 8px 16px;
+  border-radius: var(--border-radius);
+  border: 1px solid var(--color-border);
+}
+.search-bar input { border: none; outline: none; background: transparent; }
+.icon-btn { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--color-text-secondary); }
+.user-avatar { width: 40px; height: 40px; border-radius: 50%; }
+.hamburger { display: none; } /* Show only on mobile */
+@media(max-width: 768px) { .search-bar { display: none; } .hamburger { display: block; } }
