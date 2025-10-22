@@ -1,55 +1,28 @@
-import pg from 'pg';
-import { createClient } from 'redis';
-import dotenv from 'dotenv';
+﻿import pkg from 'pg';
+const { Pool } = pkg;
 
-dotenv.config();
-
-const { Pool } = pg;
-
-// PostgreSQL Connection Pool
-export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+const pool = new Pool({
+  host: process.env.DB_HOST || 'localhost',
+  port: process.env.DB_PORT || 5432,
+  database: process.env.DB_NAME || 'ecom_dash',
+  user: process.env.DB_USER || 'postgres',
+  password: process.env.DB_PASSWORD,
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
 });
 
-// Redis Client
-export const redisClient = createClient({
-  url: process.env.REDIS_URL,
+pool.on('connect', () => {
+  console.log('✅ Database pool connected');
 });
 
-redisClient.on('error', (err) => console.error('Redis Client Error', err));
-redisClient.on('connect', () => console.log('✅ Redis Connected'));
+pool.on('error', (err) => {
+  console.error('Unexpected database error:', err);
+  process.exit(-1);
+});
 
-// Connect Redis
-export const connectRedis = async () => {
-  try {
-    await redisClient.connect();
-  } catch (error) {
-    console.error('Failed to connect to Redis:', error);
-  }
-};
+const query = (text, params) => pool.query(text, params);
+const getClient = () => pool.connect();
 
-// Test Database Connection
-export const testConnection = async () => {
-  try {
-    const client = await pool.connect();
-    const result = await client.query('SELECT NOW()');
-    console.log('✅ PostgreSQL Connected:', result.rows[0].now);
-    client.release();
-    return true;
-  } catch (error) {
-    console.error('❌ PostgreSQL Connection Error:', error.message);
-    return false;
-  }
-};
-
-// Graceful Shutdown
-export const closeConnections = async () => {
-  await pool.end();
-  await redisClient.quit();
-  console.log('Database connections closed');
-};
-
-export default { pool, redisClient, testConnection, connectRedis, closeConnections };
+export { query, getClient, pool };
+export default { query, getClient, pool };

@@ -1,5 +1,3 @@
-Files and Folders Hierarchy and structure :
-
 ecom-dash/
 ├── .github/
 │   └── workflows/
@@ -61,16 +59,19 @@ ecom-dash/
 │   │   ├── unit/
 │   │   ├── integration/
 │   │   └── test_sales.spec.js
+│   ├── .env                          ← UPDATED (GEMINI_API_KEY added)
 │   ├── .env.example
 │   ├── index.js
-│   ├── package.json
+│   ├── package.json                  ← UPDATED (added @google/generative-ai)
 │   ├── package-lock.json
-│   └── server.js
+│   └── server.js                     ← MAIN FILE (Gemini AI integrated)
 │
 ├── database/
 │   ├── migrations/
 │   │   └── README.md
 │   ├── datasets/
+│   │   ├── data.csv                  ← YOUR KAGGLE DATA
+│   │   └── processed_data.json       ← PROCESSED DATA
 │   ├── schema.sql
 │   └── seed_data.sql
 │
@@ -136,7 +137,7 @@ ecom-dash/
 │   │   │   │   ├── LoginForm.jsx
 │   │   │   │   └── SettingsForm.jsx
 │   │   │   ├── gemini-chat/
-│   │   │   │   ├── ChatInterface.jsx
+│   │   │   │   ├── ChatInterface.jsx      ← UPDATED (Fick AI)
 │   │   │   │   ├── ChatMessage.jsx
 │   │   │   │   ├── ChatInput.jsx
 │   │   │   │   ├── ChatSuggestions.jsx
@@ -148,13 +149,14 @@ ecom-dash/
 │   │   │   │   ├── Navbar.jsx
 │   │   │   │   ├── Navbar.css
 │   │   │   │   ├── Sidebar.css
-│   │   │   │   └── Sidebar.jsx
+│   │   │   │   └── Sidebar.jsx              ← UPDATED (Logo → About)
 │   │   │   └── tables/
 │   │   │       ├── DataTable.jsx
 │   │   │       ├── SalesTable.jsx
 │   │   │       └── CustomerTable.jsx
 │   │   ├── context/
-│   │   │   └── AppContext.jsx
+│   │   │   ├── AppContext.jsx
+│   │   │   └── ThemeContext.jsx             ← NEW (Dark mode)
 │   │   ├── hooks/
 │   │   │   ├── useAuth.js
 │   │   │   ├── useApi.js
@@ -162,14 +164,22 @@ ecom-dash/
 │   │   │   └── useGeminiChat.js
 │   │   ├── pages/
 │   │   │   ├── Dashboard/
-│   │   │   │   ├── index.jsx
+│   │   │   │   ├── index.jsx                ← MAIN DASHBOARD
+│   │   │   │   ├── About.jsx                ← NEW
+│   │   │   │   ├── HelpCenter.jsx           ← NEW
+│   │   │   │   ├── Settings.jsx             ← NEW (Dark mode)
+│   │   │   │   ├── Analytics.jsx            ← NEW
+│   │   │   │   ├── Explore.jsx              ← NEW
+│   │   │   │   ├── Customers.jsx            ← NEW
+│   │   │   │   ├── Integration.jsx          ← NEW
+│   │   │   │   ├── Messages.jsx             ← NEW
+│   │   │   │   ├── Reviews.jsx              ← NEW
 │   │   │   │   ├── CustomersMarketing.jsx
 │   │   │   │   ├── Dashboard.css
 │   │   │   │   ├── Executive.jsx
 │   │   │   │   ├── ProductInventory.jsx
 │   │   │   │   ├── Reports.jsx
-│   │   │   │   ├── SalesDeepDive.jsx
-│   │   │   │   └── Settings.jsx
+│   │   │   │   └── SalesDeepDive.jsx
 │   │   │   ├── ErrorPage/
 │   │   │   │   ├── NotFound.css
 │   │   │   │   └── NotFound.jsx
@@ -215,16 +225,16 @@ ecom-dash/
 │   │   │   ├── constants.js
 │   │   │   └── chartConfig.js
 │   │   ├── App.css
-│   │   ├── App.jsx
+│   │   ├── App.jsx                          ← UPDATED (All routes + Theme)
 │   │   ├── index.css
 │   │   ├── index.js
 │   │   └── main.jsx
 │   ├── .gitignore
 │   ├── index.html
-│   ├── package.json
+│   ├── package.json                         ← UPDATED (recharts added)
 │   ├── package-lock.json
 │   ├── postcss.config.js
-│   ├── tailwind.config.js
+│   ├── tailwind.config.js                   ← UPDATED (Dark mode)
 │   └── vite.config.js
 │
 ├── infrastructure/
@@ -252,7 +262,7 @@ ecom-dash/
 │
 ├── scripts/
 │   ├── generate-sample-data.js
-│   ├── import-kaggle-dataset.py
+│   ├── import-kaggle-data.py                ← USED FOR DATA IMPORT
 │   ├── setup-dev-env.sh
 │   └── seed-database.js
 │

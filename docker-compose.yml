@@ -1,68 +1,11 @@
-version: '3.8'
-
-services:
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: ../infrastructure/docker/Dockerfile.frontend
-    ports:
-      - "3000:3000"
-    environment:
-      - VITE_API_URL=http://localhost:5000/api
-      - VITE_ANALYTICS_URL=http://localhost:8000
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    depends_on:
-      - backend
-    networks:
-      - salesradar-network
-
-  backend:
-    build:
-      context: ./backend
-      dockerfile: ../infrastructure/docker/Dockerfile.backend
-    ports:
-      - "5000:5000"
-    environment:
-      - NODE_ENV=development
-      - PORT=5000
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/salesradar
-      - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=${JWT_SECRET}
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-    volumes:
-      - ./backend:/app
-      - /app/node_modules
-    depends_on:
-      - postgres
-      - redis
-    networks:
-      - salesradar-network
-
-  analytics:
-    build:
-      context: ./analytics
-      dockerfile: ../infrastructure/docker/Dockerfile.analytics
-    ports:
-      - "8000:8000"
-    environment:
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/salesradar
-      - MODEL_PATH=/app/trained_models
-    volumes:
-      - ./analytics:/app
-      - ./analytics/trained_models:/app/trained_models
-    depends_on:
-      - postgres
-    networks:
-      - salesradar-network
-
+﻿services:
   postgres:
     image: postgres:15-alpine
+    container_name: ecom-postgres
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=salesradar
+      POSTGRES_DB: ecom_dash
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Makhas037@123*
     ports:
       - "5432:5432"
     volumes:
@@ -70,21 +13,80 @@ services:
       - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
       - ./database/seed_data.sql:/docker-entrypoint-initdb.d/02-seed.sql
     networks:
-      - salesradar-network
+      - ecom-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
+    container_name: ecom-redis
     ports:
       - "6379:6379"
+    command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
     networks:
-      - salesradar-network
+      - ecom-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ecom-backend
+    ports:
+      - "5000:5000"
+    environment:
+      NODE_ENV: production
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ecom_dash
+      DB_USER: postgres
+      DB_PASSWORD: Makhas037@123*
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      PORT: 5000
+      JWT_SECRET: college-project-jwt-secret
+      GEMINI_API_KEY: AIzaSyCs0rVYHFMKL3lifcistmSUY90jKv059WY
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ecom-network
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ecom-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      VITE_API_URL: http://localhost:5000/api
+    depends_on:
+      - backend
+    networks:
+      - ecom-network
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
 
 volumes:
   postgres_data:
   redis_data:
 
 networks:
-  salesradar-network:
+  ecom-network:
     driver: bridge

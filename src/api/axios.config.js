@@ -13,7 +13,7 @@ api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
     if (token) {
-      config.headers.Authorization = `Bearer ``;
+      config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
@@ -31,17 +31,5 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
-
-// Sales API
-export const salesApi = {
-  getAll: (page = 1, limit = 50) => api.get(`/sales?page=`&limit=``),
-  getByDateRange: (startDate, endDate) => 
-    api.get(`/sales/date-range?startDate=`&endDate=``)
-};
-
-// Analytics API
-export const analyticsApi = {
-  getDashboard: () => api.get('/analytics/dashboard')
-};
 
 export default api;

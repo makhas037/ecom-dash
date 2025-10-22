@@ -3,7 +3,10 @@
   "version": "1.0.0",
   "description": "Enterprise E-Commerce Sales Dashboard - Professional SaaS BI Platform",
   "private": true,
-  "workspaces": ["frontend", "backend"],
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
   "scripts": {
     "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install",
     "dev:frontend": "cd frontend && npm run dev",
@@ -19,10 +22,23 @@
     "setup": "npm run install:all && npm run db:setup",
     "db:setup": "cd database && node ../scripts/seed-database.js"
   },
-  "keywords": ["dashboard", "analytics", "ecommerce", "sales", "business-intelligence", "react", "nodejs", "python", "machine-learning"],
+  "keywords": [
+    "dashboard",
+    "analytics",
+    "ecommerce",
+    "sales",
+    "business-intelligence",
+    "react",
+    "nodejs",
+    "python",
+    "machine-learning"
+  ],
   "author": "SalesRadar Team",
   "license": "MIT",
   "devDependencies": {
     "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1"
   }
 }

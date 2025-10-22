@@ -1,0 +1,33 @@
+{
+  "models": [
+    {
+      "title": "Gemini 1.5 Pro",
+      "provider": "google",
+      "model": "gemini-1.5-pro-latest",
+      "apiKey": "YOUR_GEMINI_API_KEY"
+    }
+  ],
+  "embeddingsProvider": {
+    "provider": "google",
+    "model": "textembedding-gecko",
+    "apiKey": "YOUR_GEMINI_API_KEY"
+  },
+  "allowAnonymousTelemetry": false,
+  "contextProviders": [
+    {
+      "name": "repo",
+      "type": "repo",
+      "depth": 4
+    },
+    {
+      "name": "terminal",
+      "type": "terminal"
+    },
+    {
+      "name": "code",
+      "type": "code"
+    }
+  ],
+  "defaultModel": "Gemini 1.5 Pro",
+  "tabAutocompleteModel": "Gemini 1.5 Pro"
+}

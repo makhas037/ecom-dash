@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+﻿import React, { useState, useRef, useEffect } from 'react';
 import { X, Send, Bot, User, Sparkles, TrendingUp, Users, DollarSign } from 'lucide-react';
 import axiosInstance from '../../api/axios.config';
 
@@ -43,7 +43,8 @@ const ChatInterface = ({ isOpen, onClose }) => {
     setIsLoading(true);
 
     try {
-      const response = await axiosInstance.post('/chat/gemini', {
+      // FIXED: Changed from /chat/gemini to /gemini/chat
+      const response = await axiosInstance.post('/gemini/chat', {
         message: userMessage,
         conversationHistory: messages
       });
@@ -56,9 +57,23 @@ const ChatInterface = ({ isOpen, onClose }) => {
       }]);
     } catch (error) {
       console.error('Chat error:', error);
+      
+      let errorMessage = 'Sorry, I encountered an error.';
+      
+      // Better error handling
+      if (error.code === 'ERR_NETWORK') {
+        errorMessage = 'Cannot connect to backend server. Please ensure it is running on port 5000.';
+      } else if (error.response?.status === 404) {
+        errorMessage = 'Chat endpoint not found. Please check backend configuration.';
+      } else if (error.response?.data?.details?.includes('overloaded')) {
+        errorMessage = 'Gemini AI is temporarily overloaded. Please try again in a moment.';
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      }
+      
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: 'Sorry, I encountered an error. Please make sure the backend server is running on port 5000.',
+        content: errorMessage,
         timestamp: new Date()
       }]);
     } finally {
