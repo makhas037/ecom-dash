@@ -1,14 +1,17 @@
 ﻿import express from 'express';
 import { register, login, getCurrentUser } from '../controllers/authController.js';
+import { authenticate } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Local auth routes
+// Public routes
 router.post('/register', register);
 router.post('/login', login);
-router.get('/me', getCurrentUser);
 
-// Google OAuth - placeholder for now
+// Protected routes
+router.get('/me', authenticate, getCurrentUser);
+
+// Google OAuth - placeholder
 router.get('/google', (req, res) => {
   res.status(501).json({ 
     error: 'Google OAuth not configured yet',
