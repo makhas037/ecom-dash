@@ -15,7 +15,7 @@ import { MessageCircle } from 'lucide-react';
 // Public Pages
 import LoginPage from './pages/LoginPage/LoginPage';
 import SignupPage from './pages/SignupPage/SignupPage';
-import AuthCallback from './pages/AuthCallback';
+import AuthCallback from './pages/Auth/AuthCallback';
 
 // Protected Pages
 import Dashboard from './pages/Dashboard/index';
@@ -28,8 +28,8 @@ import Reviews from './pages/Dashboard/Reviews';
 import Settings from './pages/Dashboard/Settings';
 import HelpCenter from './pages/Dashboard/HelpCenter';
 import About from './pages/Dashboard/About';
-import FickAIPage from './pages/FickAIPage';
-import DatasetsPage from './pages/DatasetsPage';
+import FickAIPage from './pages/FickAI/FickAIPage';
+import DatasetsPage from './pages/Datasets/DatasetsPage';
 
 // Dashboard Layout Wrapper
 const DashboardLayout = ({ children }) => {

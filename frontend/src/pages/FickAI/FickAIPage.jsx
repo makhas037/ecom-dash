@@ -1,9 +1,12 @@
 ﻿import React, { useState, useEffect, useRef } from 'react';
-import { Send, Bot, User, Trash2, Search, Download, Filter, Sparkles, TrendingUp, BarChart3, Database, AlertCircle } from 'lucide-react';
+import { Send, Bot, User, Trash2, Search, Sparkles, TrendingUp, BarChart3, Database, AlertCircle } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import axiosInstance from '../api/axios.config';
+import axiosInstance from '../../api/axios.config';
+import { useAuth } from '../../context/AuthContext';
+import toast, { Toaster } from 'react-hot-toast';
 
 const FickAIPage = () => {
+  const { user } = useAuth();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -11,7 +14,6 @@ const FickAIPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const messagesEndRef = useRef(null);
-  const userId = 'demo-user'; // Replace with actual user ID from auth
 
   const suggestedQuestions = [
     { icon: TrendingUp, text: 'Show me sales trends chart', color: 'text-purple-600', type: 'chart' },
@@ -20,23 +22,24 @@ const FickAIPage = () => {
     { icon: AlertCircle, text: 'Help me fix an error', color: 'text-orange-600', type: 'troubleshooting' },
   ];
 
-  // Load chat history on mount
   useEffect(() => {
-    loadChatHistory();
-  }, []);
+    if (user?.id) {
+      loadChatHistory();
+    }
+  }, [user]);
 
-  // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   const loadChatHistory = async () => {
+    if (!user?.id) return;
+
     try {
-      const response = await axiosInstance.get(`/chat/history/${userId}`);
-      setChatHistory(response.data.history);
+      const response = await axiosInstance.get(`/chat/history/${user.id}`);
+      setChatHistory(response.data.history || []);
       
-      // Load last conversation into messages
-      if (response.data.history.length > 0) {
+      if (response.data.history && response.data.history.length > 0) {
         const lastMessages = response.data.history.slice(0, 5).reverse().map(h => ([
           { role: 'user', content: h.message, timestamp: new Date(h.created_at), type: h.message_type },
           { role: 'assistant', content: h.response, timestamp: new Date(h.created_at), chart: h.metadata?.chart }
@@ -45,17 +48,27 @@ const FickAIPage = () => {
       } else {
         setMessages([{
           role: 'assistant',
-          content: 'Hi! I\'m Fick AI, your intelligent business analytics assistant. I can help with analytics, generate charts, and troubleshoot issues. What would you like to know?',
+          content: "Hi! I'm Fick AI, your intelligent business analytics assistant. I can help with analytics, generate charts, and troubleshoot issues. What would you like to know?",
           timestamp: new Date()
         }]);
       }
     } catch (error) {
       console.error('Load history error:', error);
+      setMessages([{
+        role: 'assistant',
+        content: "Hi! I'm Fick AI, your intelligent business analytics assistant. I can help with analytics, generate charts, and troubleshoot issues. What would you like to know?",
+        timestamp: new Date()
+      }]);
     }
   };
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
+
+    if (!user?.id) {
+      toast.error('Please log in to use Fick AI');
+      return;
+    }
 
     const userMessage = input.trim();
     setInput('');
@@ -70,7 +83,7 @@ const FickAIPage = () => {
     try {
       const response = await axiosInstance.post('/gemini/chat', {
         message: userMessage,
-        userId: userId
+        userId: user.id
       });
 
       setMessages(prev => [...prev, {
@@ -81,7 +94,6 @@ const FickAIPage = () => {
         timestamp: new Date()
       }]);
 
-      // Reload history
       await loadChatHistory();
     } catch (error) {
       console.error('Chat error:', error);
@@ -90,28 +102,33 @@ const FickAIPage = () => {
         content: 'Sorry, I encountered an error. Please try again.',
         timestamp: new Date()
       }]);
+      toast.error('Failed to send message');
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleClearHistory = async () => {
-    if (!window.confirm('Are you sure you want to clear all chat history?')) return;
+    if (!user?.id || !window.confirm('Are you sure you want to clear all chat history?')) return;
     
     try {
-      await axiosInstance.delete(`/chat/history/${userId}`);
+      await axiosInstance.delete(`/chat/history/${user.id}`);
       setMessages([{
         role: 'assistant',
         content: 'Chat history cleared. How can I help you today?',
         timestamp: new Date()
       }]);
       setChatHistory([]);
+      toast.success('Chat history cleared');
     } catch (error) {
       console.error('Clear history error:', error);
+      toast.error('Failed to clear history');
     }
   };
 
   const handleSearch = async () => {
+    if (!user?.id) return;
+
     if (!searchTerm.trim()) {
       await loadChatHistory();
       return;
@@ -119,12 +136,13 @@ const FickAIPage = () => {
 
     try {
       const response = await axiosInstance.post('/chat/history/search', {
-        userId,
+        userId: user.id,
         searchTerm
       });
-      setChatHistory(response.data.results);
+      setChatHistory(response.data.results || []);
     } catch (error) {
       console.error('Search error:', error);
+      toast.error('Search failed');
     }
   };
 
@@ -183,9 +201,26 @@ const FickAIPage = () => {
     ? chatHistory 
     : chatHistory.filter(h => h.message_type === filterType);
 
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="text-center">
+          <Bot className="mx-auto mb-4 text-purple-600" size={64} />
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+            Please Log In
+          </h2>
+          <p className="text-gray-600 dark:text-gray-400">
+            You need to be logged in to use Fick AI
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Chat History Sidebar */}
+      <Toaster position="top-right" />
+      
       <div className="w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">
@@ -202,7 +237,6 @@ const FickAIPage = () => {
             </button>
           </div>
 
-          {/* Search */}
           <div className="flex space-x-2 mb-3">
             <input
               type="text"
@@ -220,7 +254,6 @@ const FickAIPage = () => {
             </button>
           </div>
 
-          {/* Filter */}
           <select
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
@@ -234,7 +267,6 @@ const FickAIPage = () => {
           </select>
         </div>
 
-        {/* History List */}
         <div className="flex-1 overflow-y-auto p-2">
           {filteredHistory.length === 0 ? (
             <div className="text-center py-8 text-gray-500 dark:text-gray-400 text-sm">
@@ -273,18 +305,17 @@ const FickAIPage = () => {
         </div>
       </div>
 
-      {/* Main Chat Area */}
       <div className="flex-1 flex flex-col">
-        {/* Header */}
         <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white p-6 shadow-lg">
           <h1 className="text-2xl font-bold flex items-center">
             <Bot className="mr-3" size={32} />
             Fick AI - Full Analytics Assistant
           </h1>
-          <p className="text-sm text-white/80 mt-1">Ask questions, generate charts, get insights, and troubleshoot issues</p>
+          <p className="text-sm text-white/80 mt-1">
+            Ask questions, generate charts, get insights, and troubleshoot issues • Logged in as {user.name}
+          </p>
         </div>
 
-        {/* Suggested Questions */}
         {messages.length <= 1 && (
           <div className="p-6 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
             <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Try asking:</h3>
@@ -303,7 +334,6 @@ const FickAIPage = () => {
           </div>
         )}
 
-        {/* Messages */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {messages.map((message, index) => (
             <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -351,7 +381,6 @@ const FickAIPage = () => {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input Area */}
         <div className="p-6 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
           <div className="flex items-end space-x-3 max-w-4xl mx-auto">
             <textarea

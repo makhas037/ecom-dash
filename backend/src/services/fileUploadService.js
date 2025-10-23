@@ -1,9 +1,8 @@
-﻿import multer from 'multer';
-import path from 'path';
+﻿import path from 'path';
 import fs from 'fs/promises';
+import { createReadStream, existsSync } from 'fs';
 import csv from 'csv-parser';
 import XLSX from 'xlsx';
-import { createReadStream } from 'fs';
 import pkg from 'pg';
 const { Pool } = pkg;
 
@@ -16,31 +15,6 @@ const pool = new Pool({
   max: 20,
 });
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/');
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
-export const upload = multer({
-  storage,
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = ['.csv', '.xlsx', '.xls', '.json'];
-    const ext = path.extname(file.originalname).toLowerCase();
-    if (allowedTypes.includes(ext)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file type. Only CSV, Excel, and JSON files are allowed.'));
-    }
-  }
-});
-
 export class FileUploadService {
   // Parse CSV file
   static async parseCSV(filePath) {
@@ -49,141 +23,186 @@ export class FileUploadService {
       createReadStream(filePath)
         .pipe(csv())
         .on('data', (data) => results.push(data))
-        .on('end', () => {
-          resolve({
-            data: results,
-            rowCount: results.length,
-            columnCount: results.length > 0 ? Object.keys(results[0]).length : 0,
-            columns: results.length > 0 ? Object.keys(results[0]) : []
-          });
-        })
-        .on('error', reject);
+        .on('end', () => resolve(results))
+        .on('error', (error) => reject(error));
     });
   }
 
   // Parse Excel file
   static async parseExcel(filePath) {
-    const workbook = XLSX.readFile(filePath);
-    const sheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[sheetName];
-    const data = XLSX.utils.sheet_to_json(worksheet);
-    
-    return {
-      data: data,
-      rowCount: data.length,
-      columnCount: data.length > 0 ? Object.keys(data[0]).length : 0,
-      columns: data.length > 0 ? Object.keys(data[0]) : []
-    };
+    try {
+      const workbook = XLSX.readFile(filePath);
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      return XLSX.utils.sheet_to_json(worksheet);
+    } catch (error) {
+      throw new Error(`Failed to parse Excel file: ${error.message}`);
+    }
   }
 
   // Parse JSON file
   static async parseJSON(filePath) {
-    const content = await fs.readFile(filePath, 'utf-8');
-    const data = JSON.parse(content);
-    const dataArray = Array.isArray(data) ? data : [data];
-    
-    return {
-      data: dataArray,
-      rowCount: dataArray.length,
-      columnCount: dataArray.length > 0 ? Object.keys(dataArray[0]).length : 0,
-      columns: dataArray.length > 0 ? Object.keys(dataArray[0]) : []
-    };
+    try {
+      const content = await fs.readFile(filePath, 'utf-8');
+      return JSON.parse(content);
+    } catch (error) {
+      throw new Error(`Failed to parse JSON file: ${error.message}`);
+    }
   }
 
   // Main parse function
-  static async parseFile(filePath, fileType) {
-    const ext = path.extname(fileType).toLowerCase();
-    
-    if (ext === '.csv') {
-      return await this.parseCSV(filePath);
-    } else if (ext === '.xlsx' || ext === '.xls') {
-      return await this.parseExcel(filePath);
-    } else if (ext === '.json') {
-      return await this.parseJSON(filePath);
+  static async parseFile(filePath, filename) {
+    const ext = path.extname(filename).toLowerCase();
+    let data;
+
+    switch (ext) {
+      case '.csv':
+        data = await this.parseCSV(filePath);
+        break;
+      case '.xlsx':
+      case '.xls':
+        data = await this.parseExcel(filePath);
+        break;
+      case '.json':
+        data = await this.parseJSON(filePath);
+        break;
+      default:
+        throw new Error('Unsupported file type');
     }
-    
-    throw new Error('Unsupported file type');
+
+    if (!Array.isArray(data) || data.length === 0) {
+      throw new Error('File is empty or invalid format');
+    }
+
+    const columns = Object.keys(data[0]);
+    const sampleData = data.slice(0, 10);
+
+    return {
+      data,
+      columns,
+      rowCount: data.length,
+      columnCount: columns.length,
+      sample: sampleData
+    };
   }
 
   // Save dataset to database
   static async saveDataset(userId, file, parsedData) {
     const query = `
       INSERT INTO user_datasets (
-        user_id, dataset_name, description, file_name, file_size,
-        file_type, file_path, row_count, column_count, query_config, data_snapshot
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        user_id, 
+        dataset_name, 
+        file_name, 
+        file_type, 
+        file_size,
+        query_config,
+        data_snapshot,
+        created_at,
+        updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
       RETURNING *
     `;
+
+    const queryConfig = {
+      columns: parsedData.columns,
+      rowCount: parsedData.rowCount,
+      columnCount: parsedData.columnCount
+    };
 
     const values = [
       userId,
       file.originalname,
-      `Uploaded ${file.originalname}`,
       file.filename,
-      file.size,
       file.mimetype,
-      file.path,
-      parsedData.rowCount,
-      parsedData.columnCount,
-      JSON.stringify({ columns: parsedData.columns }),
-      JSON.stringify(parsedData.data.slice(0, 100)) // Store first 100 rows
+      file.size,
+      JSON.stringify(queryConfig),
+      JSON.stringify(parsedData.data)
     ];
 
-    const result = await pool.query(query, values);
-    return result.rows[0];
+    try {
+      const result = await pool.query(query, values);
+      return result.rows[0];
+    } catch (error) {
+      console.error('Database save error:', error);
+      throw new Error(`Failed to save dataset: ${error.message}`);
+    }
   }
 
-  // Get dataset data
+  // Get dataset with data
   static async getDatasetData(datasetId, userId) {
-    const query = 'SELECT * FROM user_datasets WHERE id = $1 AND user_id = $2';
-    const result = await pool.query(query, [datasetId, userId]);
-    
-    if (result.rows.length === 0) {
-      throw new Error('Dataset not found');
-    }
-
-    const dataset = result.rows[0];
-    const parsedData = await this.parseFile(dataset.file_path, dataset.file_name);
-    
-    return {
-      ...dataset,
-      data: parsedData.data,
-      preview: parsedData.data.slice(0, 10)
-    };
-  }
-
-  // Apply dataset (mark as active)
-  static async applyDataset(datasetId, userId) {
-    // First, unmark all datasets as applied
-    await pool.query('UPDATE user_datasets SET is_applied = false WHERE user_id = $1', [userId]);
-    
-    // Mark this dataset as applied
     const query = `
-      UPDATE user_datasets
-      SET is_applied = true, updated_at = CURRENT_TIMESTAMP
+      SELECT * FROM user_datasets 
       WHERE id = $1 AND user_id = $2
-      RETURNING *
     `;
-    
-    const result = await pool.query(query, [datasetId, userId]);
-    return result.rows[0];
+
+    try {
+      const result = await pool.query(query, [datasetId, userId]);
+      
+      if (result.rows.length === 0) {
+        throw new Error('Dataset not found or access denied');
+      }
+
+      const dataset = result.rows[0];
+      return {
+        id: dataset.id,
+        dataset_name: dataset.dataset_name,
+        row_count: dataset.query_config?.rowCount || 0,
+        column_count: dataset.query_config?.columnCount || 0,
+        query_config: dataset.query_config,
+        data: dataset.data_snapshot || [],
+        preview: (dataset.data_snapshot || []).slice(0, 10)
+      };
+    } catch (error) {
+      console.error('Get dataset error:', error);
+      throw error;
+    }
   }
 
-  // Delete dataset and file
-  static async deleteDataset(datasetId, userId) {
-    const dataset = await pool.query(
-      'SELECT file_path FROM user_datasets WHERE id = $1 AND user_id = $2',
-      [datasetId, userId]
-    );
+  // Apply dataset
+  static async applyDataset(datasetId, userId) {
+    try {
+      // First, unapply all other datasets for this user
+      await pool.query(
+        'UPDATE user_datasets SET is_applied = false WHERE user_id = $1',
+        [userId]
+      );
 
-    if (dataset.rows.length > 0) {
-      try {
-        await fs.unlink(dataset.rows[0].file_path);
-      } catch (err) {
-        console.error('File deletion error:', err);
+      // Then apply this dataset
+      const result = await pool.query(
+        `UPDATE user_datasets 
+         SET is_applied = true, updated_at = NOW() 
+         WHERE id = $1 AND user_id = $2 
+         RETURNING *`,
+        [datasetId, userId]
+      );
+
+      if (result.rows.length === 0) {
+        throw new Error('Dataset not found or access denied');
       }
-    }
 
-    await pool.query('DELETE FROM user_datasets WHERE id = $1 AND user_id = $2', [datasetId, userId]);
+      return result.rows[0];
+    } catch (error) {
+      console.error('Apply dataset error:', error);
+      throw error;
+    }
+  }
+
+  // Delete dataset
+  static async deleteDataset(datasetId, userId) {
+    try {
+      const result = await pool.query(
+        'DELETE FROM user_datasets WHERE id = $1 AND user_id = $2 RETURNING *',
+        [datasetId, userId]
+      );
+
+      if (result.rows.length === 0) {
+        throw new Error('Dataset not found or access denied');
+      }
+
+      return result.rows[0];
+    } catch (error) {
+      console.error('Delete dataset error:', error);
+      throw error;
+    }
   }
 }

@@ -1,0 +1,201 @@
+﻿// ==================== ENHANCED ANALYTICS WITH DATASET INTELLIGENCE ====================
+// Replace the existing /analytics/dashboard route with this
+
+router.get('/analytics/dashboard', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.userId;
+
+    const datasetResult = await queryWithUser(
+      userId,
+      `SELECT * FROM user_datasets WHERE user_id = $1 AND is_applied = true LIMIT 1`,
+      [userId]
+    );
+
+    if (datasetResult.rows.length === 0) {
+      return res.json({
+        message: 'No dataset applied. Upload a dataset to see analytics.',
+        hasDataset: false,
+        kpis: { total_records: 0, total_revenue: 0, average_value: 0, unique_entities: 0 },
+        recentData: [], chartData: [], categoryData: [], topProducts: []
+      });
+    }
+
+    const dataset = datasetResult.rows[0];
+    const data = dataset.data_snapshot || [];
+    const columns = dataset.query_config?.columns || [];
+
+    const detectColumn = (patterns) => columns.find(col => 
+      patterns.some(p => col.toLowerCase().includes(p.toLowerCase()))
+    );
+
+    const amountCol = detectColumn(['amount', 'price', 'revenue', 'total', 'value', 'cost', 'sale']);
+    const dateCol = detectColumn(['date', 'time', 'created', 'order_date', 'sale_date']);
+    const customerCol = detectColumn(['customer', 'client', 'user', 'buyer', 'name']);
+    const productCol = detectColumn(['product', 'item', 'sku', 'article']);
+    const quantityCol = detectColumn(['quantity', 'qty', 'count', 'units']);
+    const categoryCol = detectColumn(['category', 'type', 'group', 'class', 'segment']);
+
+    let totalRevenue = 0, uniqueCustomers = new Set(), uniqueProducts = new Set(), totalQuantity = 0;
+
+    data.forEach(row => {
+      if (amountCol && row[amountCol]) totalRevenue += parseFloat(row[amountCol]) || 0;
+      if (quantityCol && row[quantityCol]) totalQuantity += parseFloat(row[quantityCol]) || 0;
+      if (customerCol && row[customerCol]) uniqueCustomers.add(row[customerCol]);
+      if (productCol && row[productCol]) uniqueProducts.add(row[productCol]);
+    });
+
+    let chartData = [];
+    if (dateCol && amountCol) {
+      const grouped = {};
+      data.forEach(row => {
+        if (row[dateCol] && row[amountCol]) {
+          const date = new Date(row[dateCol]).toISOString().split('T')[0];
+          grouped[date] = (grouped[date] || 0) + (parseFloat(row[amountCol]) || 0);
+        }
+      });
+      chartData = Object.entries(grouped).sort(([a], [b]) => new Date(a) - new Date(b))
+        .slice(-30).map(([date, value]) => ({ date: new Date(date).toLocaleDateString(), value: parseFloat(value.toFixed(2)) }));
+    }
+
+    let categoryData = [];
+    if (categoryCol && amountCol) {
+      const grouped = {};
+      data.forEach(row => {
+        if (row[categoryCol] && row[amountCol]) {
+          grouped[row[categoryCol]] = (grouped[row[categoryCol]] || 0) + (parseFloat(row[amountCol]) || 0);
+        }
+      });
+      categoryData = Object.entries(grouped).map(([name, value]) => ({ name, value: parseFloat(value.toFixed(2)) }))
+        .sort((a, b) => b.value - a.value).slice(0, 10);
+    }
+
+    let topProducts = [];
+    if (productCol) {
+      const counts = {};
+      data.forEach(row => { if (row[productCol]) counts[row[productCol]] = (counts[row[productCol]] || 0) + 1; });
+      topProducts = Object.entries(counts).map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count).slice(0, 10);
+    }
+
+    res.json({
+      hasDataset: true,
+      datasetName: dataset.dataset_name,
+      totalRecords: data.length,
+      columns,
+      detectedColumns: { amount: amountCol, date: dateCol, customer: customerCol, product: productCol, quantity: quantityCol, category: categoryCol },
+      kpis: {
+        total_records: data.length,
+        total_revenue: parseFloat(totalRevenue.toFixed(2)),
+        average_value: data.length > 0 ? parseFloat((totalRevenue / data.length).toFixed(2)) : 0,
+        unique_customers: uniqueCustomers.size,
+        unique_products: uniqueProducts.size,
+        total_quantity: totalQuantity
+      },
+      recentData: data.slice(0, 10),
+      chartData, categoryData, topProducts
+    });
+  } catch (error) {
+    console.error('Dashboard error:', error);
+    res.status(500).json({ error: 'Analytics failed', details: error.message });
+  }
+});
+
+// ==================== ENHANCED FICK AI WITH DATASET CONTEXT ====================
+// Replace the existing /gemini/chat route with this
+
+router.post('/gemini/chat', authMiddleware, async (req, res) => {
+  console.log('🤖 Chat with dataset context');
+  try {
+    const { message } = req.body;
+    const userId = req.userId;
+
+    if (!message) return res.status(400).json({ error: 'Message required' });
+
+    // Get applied dataset for context
+    const datasetResult = await queryWithUser(
+      userId,
+      `SELECT * FROM user_datasets WHERE user_id = $1 AND is_applied = true LIMIT 1`,
+      [userId]
+    );
+
+    const { GoogleGenerativeAI } = await import('@google/generative-ai');
+    const apiKey = process.env.GEMINI_API_KEY || 'AIzaSyCs0rVYHFMKL3lifcistmSUY90jKv059WY';
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+
+    let prompt = 'You are Fick AI, an intelligent business analytics assistant.\n\n';
+
+    if (datasetResult.rows.length > 0) {
+      const dataset = datasetResult.rows[0];
+      const data = dataset.data_snapshot || [];
+      const columns = dataset.query_config?.columns || [];
+      const sample = data.slice(0, 5);
+
+      prompt += `CONTEXT: User has applied dataset "${dataset.dataset_name}" with ${data.length} records.\n`;
+      prompt += `Columns: ${columns.join(', ')}\n`;
+      prompt += `Sample data: ${JSON.stringify(sample)}\n\n`;
+    } else {
+      prompt += 'CONTEXT: User has no dataset applied yet.\n\n';
+    }
+
+    prompt += `User question: ${message}\n\n`;
+    prompt += 'Provide a helpful, data-driven response in under 200 words. If user asks about their data, use the context above.';
+
+    const result = await model.generateContent(prompt);
+    const text = (await result.response).text();
+
+    await queryWithUser(userId, `INSERT INTO chat_history (user_id, message, response, message_type, created_at) VALUES ($1, $2, $3, $4, NOW())`, [userId, message, text, 'general']);
+
+    res.json({ response: text, timestamp: new Date().toISOString() });
+  } catch (error) {
+    console.error('Chat error:', error);
+    res.status(500).json({ error: 'AI service error', details: error.message });
+  }
+});
+
+// ==================== REPORT GENERATOR ====================
+// Add this new route
+
+router.post('/analytics/generate-report', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { reportType = 'summary', dateRange = 'all' } = req.body;
+
+    const datasetResult = await queryWithUser(
+      userId,
+      `SELECT * FROM user_datasets WHERE user_id = $1 AND is_applied = true LIMIT 1`,
+      [userId]
+    );
+
+    if (datasetResult.rows.length === 0) {
+      return res.status(400).json({ error: 'No dataset applied' });
+    }
+
+    const dataset = datasetResult.rows[0];
+    const data = dataset.data_snapshot || [];
+    
+    // Generate comprehensive report
+    const report = {
+      reportId: `RPT-${Date.now()}`,
+      generatedAt: new Date().toISOString(),
+      datasetName: dataset.dataset_name,
+      recordCount: data.length,
+      reportType,
+      dateRange,
+      summary: {
+        totalRecords: data.length,
+        dataQuality: ((data.filter(r => Object.values(r).every(v => v !== null && v !== '')).length / data.length) * 100).toFixed(2) + '%'
+      },
+      recommendations: [
+        'Consider segmenting data by date for trend analysis',
+        'Identify top performing categories',
+        'Monitor outliers in amount/price columns'
+      ]
+    };
+
+    res.json(report);
+  } catch (error) {
+    console.error('Report generation error:', error);
+    res.status(500).json({ error: 'Report generation failed' });
+  }
+});

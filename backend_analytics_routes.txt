@@ -1,0 +1,158 @@
+﻿// Add this to backend/src/routes/index.js after line 260 (after the customers route)
+
+// ==================== DYNAMIC ANALYTICS (DATASET-BASED) ====================
+router.get('/analytics/dashboard', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.userId;
+
+    // Get the applied dataset for this user
+    const datasetResult = await queryWithUser(
+      userId,
+      `SELECT * FROM user_datasets WHERE user_id = $1 AND is_applied = true LIMIT 1`,
+      [userId]
+    );
+
+    if (datasetResult.rows.length === 0) {
+      return res.json({
+        message: 'No dataset applied. Please upload and apply a dataset.',
+        hasDataset: false,
+        kpis: {
+          total_records: 0,
+          total_revenue: 0,
+          average_value: 0,
+          unique_entities: 0
+        },
+        recentData: [],
+        chartData: []
+      });
+    }
+
+    const dataset = datasetResult.rows[0];
+    const data = dataset.data_snapshot || [];
+    const columns = dataset.query_config?.columns || [];
+
+    // Smart column detection
+    const detectColumn = (patterns) => {
+      return columns.find(col => 
+        patterns.some(pattern => 
+          col.toLowerCase().includes(pattern.toLowerCase())
+        )
+      );
+    };
+
+    const amountCol = detectColumn(['amount', 'price', 'revenue', 'total', 'value', 'cost', 'sale']);
+    const dateCol = detectColumn(['date', 'time', 'created', 'order_date', 'sale_date', 'timestamp']);
+    const customerCol = detectColumn(['customer', 'client', 'user', 'buyer', 'name']);
+    const productCol = detectColumn(['product', 'item', 'sku', 'article']);
+    const quantityCol = detectColumn(['quantity', 'qty', 'count', 'units', 'amount']);
+    const categoryCol = detectColumn(['category', 'type', 'group', 'class', 'segment']);
+
+    // Calculate KPIs
+    let totalRevenue = 0;
+    let uniqueCustomers = new Set();
+    let uniqueProducts = new Set();
+    let totalQuantity = 0;
+
+    data.forEach(row => {
+      if (amountCol && row[amountCol]) {
+        totalRevenue += parseFloat(row[amountCol]) || 0;
+      }
+      if (quantityCol && row[quantityCol]) {
+        totalQuantity += parseFloat(row[quantityCol]) || 0;
+      }
+      if (customerCol && row[customerCol]) {
+        uniqueCustomers.add(row[customerCol]);
+      }
+      if (productCol && row[productCol]) {
+        uniqueProducts.add(row[productCol]);
+      }
+    });
+
+    // Generate time series data if date column exists
+    let chartData = [];
+    if (dateCol && amountCol) {
+      const groupedByDate = {};
+      data.forEach(row => {
+        if (row[dateCol] && row[amountCol]) {
+          const date = new Date(row[dateCol]).toISOString().split('T')[0];
+          groupedByDate[date] = (groupedByDate[date] || 0) + (parseFloat(row[amountCol]) || 0);
+        }
+      });
+
+      chartData = Object.entries(groupedByDate)
+        .sort(([a], [b]) => new Date(a) - new Date(b))
+        .slice(-30) // Last 30 data points
+        .map(([date, value]) => ({
+          date: new Date(date).toLocaleDateString(),
+          value: parseFloat(value.toFixed(2))
+        }));
+    }
+
+    // Category breakdown if category column exists
+    let categoryData = [];
+    if (categoryCol && amountCol) {
+      const groupedByCategory = {};
+      data.forEach(row => {
+        if (row[categoryCol] && row[amountCol]) {
+          const cat = row[categoryCol];
+          groupedByCategory[cat] = (groupedByCategory[cat] || 0) + (parseFloat(row[amountCol]) || 0);
+        }
+      });
+
+      categoryData = Object.entries(groupedByCategory)
+        .map(([name, value]) => ({
+          name,
+          value: parseFloat(value.toFixed(2))
+        }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 10);
+    }
+
+    // Top products/items
+    let topProducts = [];
+    if (productCol) {
+      const productCounts = {};
+      data.forEach(row => {
+        if (row[productCol]) {
+          productCounts[row[productCol]] = (productCounts[row[productCol]] || 0) + 1;
+        }
+      });
+
+      topProducts = Object.entries(productCounts)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
+    }
+
+    res.json({
+      hasDataset: true,
+      datasetName: dataset.dataset_name,
+      totalRecords: data.length,
+      columns: columns,
+      detectedColumns: {
+        amount: amountCol,
+        date: dateCol,
+        customer: customerCol,
+        product: productCol,
+        quantity: quantityCol,
+        category: categoryCol
+      },
+      kpis: {
+        total_records: data.length,
+        total_revenue: parseFloat(totalRevenue.toFixed(2)),
+        average_value: data.length > 0 ? parseFloat((totalRevenue / data.length).toFixed(2)) : 0,
+        unique_customers: uniqueCustomers.size,
+        unique_products: uniqueProducts.size,
+        total_quantity: totalQuantity
+      },
+      recentData: data.slice(0, 10),
+      chartData,
+      categoryData,
+      topProducts
+    });
+
+  } catch (error) {
+    console.error('Dashboard analytics error:', error);
+    res.status(500).json({ error: 'Failed to generate analytics', details: error.message });
+  }
+});

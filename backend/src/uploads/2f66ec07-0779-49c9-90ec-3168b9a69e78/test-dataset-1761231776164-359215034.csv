@@ -1,0 +1,6 @@
+product_id,product_name,category,price,quantity,sale_date
+1,Laptop,Electronics,899.99,5,2024-10-01
+2,Mouse,Electronics,19.99,50,2024-10-02
+3,Keyboard,Electronics,49.99,30,2024-10-03
+4,Monitor,Electronics,299.99,10,2024-10-04
+5,Desk Chair,Furniture,199.99,15,2024-10-05
